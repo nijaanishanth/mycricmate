@@ -17,19 +17,19 @@ const RoleCard = ({ icon: Icon, title, description, selected, onClick }: RoleCar
       variant={selected ? "elevated" : "default"}
       className={cn(
         "relative cursor-pointer p-6 transition-all duration-300 hover:scale-[1.02]",
-        selected && "ring-2 ring-primary shadow-glow"
+        selected && "ring-2 ring-primary shadow-elevated"
       )}
       onClick={onClick}
     >
       {selected && (
-        <div className="absolute top-3 right-3 w-6 h-6 bg-gradient-primary rounded-full flex items-center justify-center">
+        <div className="absolute top-3 right-3 w-6 h-6 bg-primary rounded-full flex items-center justify-center">
           <Check className="w-4 h-4 text-primary-foreground" />
         </div>
       )}
       
       <div className={cn(
-        "w-14 h-14 rounded-2xl flex items-center justify-center mb-4 transition-all duration-300",
-        selected ? "bg-gradient-primary" : "bg-muted"
+        "w-14 h-14 rounded-lg flex items-center justify-center mb-4 transition-all duration-300",
+        selected ? "bg-primary" : "bg-muted"
       )}>
         <Icon className={cn(
           "w-7 h-7 transition-colors duration-300",

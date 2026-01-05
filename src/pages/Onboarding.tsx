@@ -55,7 +55,7 @@ const Onboarding = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -69,7 +69,7 @@ const Onboarding = () => {
               key={s}
               className={`h-2 w-16 rounded-full transition-all duration-300 ${
                 step === s 
-                  ? "bg-gradient-to-r from-primary to-accent" 
+                  ? "bg-primary" 
                   : i < ["role", "location", "complete"].indexOf(step)
                     ? "bg-primary"
                     : "bg-muted"
@@ -188,7 +188,7 @@ const Onboarding = () => {
 
           {step === "complete" && (
             <div className="animate-scale-in text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check className="w-10 h-10 text-primary-foreground" />
               </div>
               

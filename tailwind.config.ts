@@ -75,19 +75,17 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        xl: "calc(var(--radius) + 4px)",
-        "2xl": "calc(var(--radius) + 8px)",
-        "3xl": "calc(var(--radius) + 16px)",
+        xl: "calc(var(--radius) + 2px)",
+        "2xl": "calc(var(--radius) + 4px)",
       },
       fontFamily: {
         sans: ["Outfit", "system-ui", "sans-serif"],
         display: ["Space Grotesk", "system-ui", "sans-serif"],
       },
       boxShadow: {
-        soft: "0 4px 20px -4px hsl(152 65% 25% / 0.12)",
-        glow: "0 0 40px hsl(152 65% 25% / 0.2)",
-        card: "0 8px 32px -8px hsl(160 30% 8% / 0.1)",
-        elevated: "0 20px 60px -15px hsl(160 30% 8% / 0.15)",
+        soft: "0 2px 8px rgba(0, 0, 0, 0.08)",
+        card: "0 4px 12px rgba(0, 0, 0, 0.08)",
+        elevated: "0 8px 24px rgba(0, 0, 0, 0.12)",
       },
       keyframes: {
         "accordion-down": {
@@ -112,9 +110,6 @@ export default {
         "accordion-up": "accordion-up 0.2s ease-out",
         shimmer: "shimmer 2s infinite",
         "bounce-subtle": "bounce-subtle 2s ease-in-out infinite",
-      },
-      backgroundImage: {
-        "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
       },
     },
   },
