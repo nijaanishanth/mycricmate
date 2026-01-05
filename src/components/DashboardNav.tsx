@@ -1,0 +1,124 @@
+import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import Logo from "@/components/Logo";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuSeparator,
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { 
+  User, 
+  Users, 
+  Trophy, 
+  Briefcase, 
+  ChevronDown, 
+  LogOut,
+  Settings,
+  Bell,
+  MessageSquare
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface DashboardNavProps {
+  currentRole: "player" | "captain" | "organizer" | "staff";
+  onRoleChange: (role: "player" | "captain" | "organizer" | "staff") => void;
+}
+
+const roleConfig = {
+  player: { icon: User, label: "Player", color: "text-primary" },
+  captain: { icon: Users, label: "Captain", color: "text-secondary" },
+  organizer: { icon: Trophy, label: "Organizer", color: "text-accent" },
+  staff: { icon: Briefcase, label: "Staff", color: "text-muted-foreground" },
+};
+
+const DashboardNav = ({ currentRole, onRoleChange }: DashboardNavProps) => {
+  const location = useLocation();
+  const CurrentRoleIcon = roleConfig[currentRole].icon;
+
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-50 glass-strong">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          {/* Logo */}
+          <Link to="/dashboard" className="flex items-center">
+            <Logo size="sm" />
+          </Link>
+
+          {/* Role Switcher */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="glass" className="gap-2">
+                <CurrentRoleIcon className={cn("w-4 h-4", roleConfig[currentRole].color)} />
+                <span className="hidden sm:inline">{roleConfig[currentRole].label} View</span>
+                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-48">
+              {Object.entries(roleConfig).map(([role, config]) => {
+                const Icon = config.icon;
+                return (
+                  <DropdownMenuItem
+                    key={role}
+                    onClick={() => onRoleChange(role as any)}
+                    className={cn(
+                      "gap-2 cursor-pointer",
+                      currentRole === role && "bg-primary/10"
+                    )}
+                  >
+                    <Icon className={cn("w-4 h-4", config.color)} />
+                    {config.label}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="w-5 h-5" />
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-secondary text-secondary-foreground text-xs rounded-full flex items-center justify-center">
+                3
+              </span>
+            </Button>
+            <Button variant="ghost" size="icon" className="relative">
+              <MessageSquare className="w-5 h-5" />
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
+                2
+              </span>
+            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem className="gap-2 cursor-pointer">
+                  <User className="w-4 h-4" />
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2 cursor-pointer">
+                  <Settings className="w-4 h-4" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="gap-2 cursor-pointer text-destructive">
+                  <LogOut className="w-4 h-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+export default DashboardNav;
