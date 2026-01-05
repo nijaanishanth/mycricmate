@@ -1,4 +1,6 @@
-# Welcome to your Lovable project
+# MyCricMate - Cricket Ecosystem Platform
+
+The ultimate cricket ecosystem connecting players, teams, and organizers. Find matches, build teams, and run tournaments.
 
 ## Project info
 

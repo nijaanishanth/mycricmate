@@ -123,18 +123,17 @@ const SwipeCard = ({
       </div>
 
       {/* Image */}
-      <div className="relative h-80 overflow-hidden">
+      <div className="relative h-80 overflow-hidden bg-secondary/20">
         <img
           src={image}
           alt={name}
           className="w-full h-full object-cover"
           draggable={false}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-foreground/80 via-transparent to-transparent" />
         
         {/* Rating badge */}
         <div className="absolute top-4 right-4 glass rounded-full px-3 py-1 flex items-center gap-1">
-          <Star className="w-4 h-4 text-secondary fill-secondary" />
+          <Star className="w-4 h-4 text-primary fill-primary" />
           <span className="font-semibold text-sm">{rating.toFixed(1)}</span>
         </div>
       </div>

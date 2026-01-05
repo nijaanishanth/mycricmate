@@ -38,7 +38,7 @@ const DashboardNav = ({ currentRole, onRoleChange }: DashboardNavProps) => {
   const CurrentRoleIcon = roleConfig[currentRole].icon;
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 glass-strong">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-secondary border-b border-secondary-foreground/10">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -93,7 +93,7 @@ const DashboardNav = ({ currentRole, onRoleChange }: DashboardNavProps) => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full">
-                  <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center">
+                  <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                     <User className="w-4 h-4 text-primary-foreground" />
                   </div>
                 </Button>

@@ -5,9 +5,6 @@ import SwipeCard from "@/components/SwipeCard";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import player1 from "@/assets/player-1.jpg";
-import player2 from "@/assets/player-2.jpg";
-import player3 from "@/assets/player-3.jpg";
 import { 
   Users, 
   Trophy, 
@@ -27,7 +24,7 @@ const mockPlayers = [
     id: 1,
     type: "player" as const,
     name: "Rahul Sharma",
-    image: player1,
+    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul",
     location: "Mumbai, India",
     distance: "5 km away",
     rating: 4.8,
@@ -41,7 +38,7 @@ const mockPlayers = [
     id: 2,
     type: "player" as const,
     name: "Vikram Patel",
-    image: player2,
+    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram",
     location: "Pune, India",
     distance: "12 km away",
     rating: 4.5,
@@ -55,7 +52,7 @@ const mockPlayers = [
     id: 3,
     type: "player" as const,
     name: "Arjun Singh",
-    image: player3,
+    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun",
     location: "Mumbai, India",
     distance: "8 km away",
     rating: 4.9,
