@@ -23,7 +23,7 @@ const Index = () => {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16 bg-secondary/20">
+      <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 bg-gradient-to-br from-secondary via-secondary/50 to-background">
         {/* Content */}
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-2xl animate-slide-up">

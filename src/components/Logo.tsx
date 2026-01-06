@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import cricmateLogo from "@/assets/cricmate-logo.jpeg";
+import mycricmateLogo from "@/assets/mycricmate-logo.jpeg";
 
 interface LogoProps {
   className?: string;
@@ -23,12 +23,11 @@ const Logo = ({ className, size = "md", showText = true }: LogoProps) => {
   };
 
   return (
-    <div className={cn("flex items-center gap-3", className)}>
-      {/* MyCricMate Logo */}
+    <div className={cn("flex items-center gap-2", className)}>
       <img 
-        src={cricmateLogo} 
+        src={mycricmateLogo} 
         alt="MyCricMate Logo" 
-        className={cn("object-contain", sizes[size])}
+        className={cn("object-cover rounded-full", sizes[size])}
       />
       
       {showText && (
@@ -36,8 +35,7 @@ const Logo = ({ className, size = "md", showText = true }: LogoProps) => {
           "font-display font-bold tracking-tight",
           textSizes[size]
         )}>
-          <span className="text-primary">My</span>
-          <span className="text-primary">Cric</span>
+          <span className="text-primary">MyCric</span>
           <span className="text-foreground">Mate</span>
         </span>
       )}
