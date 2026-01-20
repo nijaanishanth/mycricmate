@@ -1,6 +1,7 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Logo from "@/components/Logo";
+import { useAuth } from "@/contexts/AuthContext";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -24,6 +25,7 @@ import { cn } from "@/lib/utils";
 interface DashboardNavProps {
   currentRole: "player" | "captain" | "organizer" | "staff";
   onRoleChange: (role: "player" | "captain" | "organizer" | "staff") => void;
+  availableRoles?: ("player" | "captain" | "organizer" | "staff")[];
 }
 
 const roleConfig = {
@@ -33,9 +35,23 @@ const roleConfig = {
   staff: { icon: Briefcase, label: "Staff", color: "text-muted-foreground" },
 };
 
-const DashboardNav = ({ currentRole, onRoleChange }: DashboardNavProps) => {
+const DashboardNav = ({ currentRole, onRoleChange, availableRoles }: DashboardNavProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const CurrentRoleIcon = roleConfig[currentRole].icon;
+  
+  // Use all roles if availableRoles is not provided (backwards compatibility)
+  const rolesToShow = availableRoles || Object.keys(roleConfig) as ("player" | "captain" | "organizer" | "staff")[];
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-secondary border-b border-secondary-foreground/10">
@@ -47,33 +63,49 @@ const DashboardNav = ({ currentRole, onRoleChange }: DashboardNavProps) => {
           </Link>
 
           {/* Role Switcher */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="glass" className="gap-2">
-                <CurrentRoleIcon className={cn("w-4 h-4", roleConfig[currentRole].color)} />
-                <span className="hidden sm:inline">{roleConfig[currentRole].label} View</span>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-48">
-              {Object.entries(roleConfig).map(([role, config]) => {
-                const Icon = config.icon;
-                return (
-                  <DropdownMenuItem
-                    key={role}
-                    onClick={() => onRoleChange(role as any)}
-                    className={cn(
-                      "gap-2 cursor-pointer",
-                      currentRole === role && "bg-primary/10"
-                    )}
-                  >
-                    <Icon className={cn("w-4 h-4", config.color)} />
-                    {config.label}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {rolesToShow.length > 1 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="glass" className="gap-2">
+                  <CurrentRoleIcon className={cn("w-4 h-4", roleConfig[currentRole].color)} />
+                  <span className="hidden sm:inline">{roleConfig[currentRole].label} View</span>
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-48">
+                {rolesToShow.map((role) => {
+                  const config = roleConfig[role];
+                  const Icon = config.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={role}
+                      onClick={() => onRoleChange(role)}
+                      className={cn(
+                        "gap-2 cursor-pointer",
+                        currentRole === role && "bg-primary/10"
+                      )}
+                    >
+                      <Icon className={cn("w-4 h-4", config.color)} />
+                      {config.label}
+                    </DropdownMenuItem>
+                  );
+                })}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="gap-2 cursor-pointer text-muted-foreground"
+                  onClick={() => navigate('/settings')}
+                >
+                  <Settings className="w-4 h-4" />
+                  Add More in Settings
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-secondary/50">
+              <CurrentRoleIcon className={cn("w-4 h-4", roleConfig[currentRole].color)} />
+              <span className="hidden sm:inline text-sm font-medium">{roleConfig[currentRole].label} View</span>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center gap-2">
@@ -103,12 +135,18 @@ const DashboardNav = ({ currentRole, onRoleChange }: DashboardNavProps) => {
                   <User className="w-4 h-4" />
                   Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem className="gap-2 cursor-pointer">
+                <DropdownMenuItem 
+                  className="gap-2 cursor-pointer"
+                  onClick={() => navigate('/settings')}
+                >
                   <Settings className="w-4 h-4" />
                   Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2 cursor-pointer text-destructive">
+                <DropdownMenuItem 
+                  className="gap-2 cursor-pointer text-destructive"
+                  onClick={handleLogout}
+                >
                   <LogOut className="w-4 h-4" />
                   Log out
                 </DropdownMenuItem>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import DashboardNav from "@/components/DashboardNav";
 import StatCard from "@/components/StatCard";
 import SwipeCard from "@/components/SwipeCard";
@@ -64,9 +65,22 @@ const mockPlayers = [
 ];
 
 const Dashboard = () => {
-  const [currentRole, setCurrentRole] = useState<Role>("captain");
+  const { user } = useAuth();
+  const userRoles = useMemo(() => (user?.roles || []) as Role[], [user?.roles]);
+  
+  // Set initial role to the first available role the user has
+  const [currentRole, setCurrentRole] = useState<Role>(
+    userRoles.length > 0 ? userRoles[0] : "player"
+  );
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
   const [matches, setMatches] = useState<typeof mockPlayers>([]);
+
+  // Update currentRole if it's not in user's roles
+  useEffect(() => {
+    if (userRoles.length > 0 && !userRoles.includes(currentRole)) {
+      setCurrentRole(userRoles[0]);
+    }
+  }, [userRoles, currentRole]);
 
   const currentPlayer = mockPlayers[currentPlayerIndex];
 
@@ -88,7 +102,11 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardNav currentRole={currentRole} onRoleChange={setCurrentRole} />
+      <DashboardNav 
+        currentRole={currentRole} 
+        onRoleChange={setCurrentRole}
+        availableRoles={userRoles}
+      />
       
       <main className="pt-20 pb-8 px-4">
         <div className="container mx-auto max-w-7xl">
