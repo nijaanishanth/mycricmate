@@ -47,7 +47,7 @@ const Index = () => {
 
             <div className="flex flex-wrap gap-4">
               <Button variant="hero" size="lg" asChild>
-                <Link to="/signup">
+                <Link to="/register">
                   Get Started Free
                   <ArrowRight className="w-5 h-5 ml-1" />
                 </Link>
@@ -210,7 +210,7 @@ const Index = () => {
               </p>
               <div className="flex flex-wrap gap-4 justify-center">
                 <Button variant="secondary" size="lg" asChild>
-                  <Link to="/signup">
+                  <Link to="/register">
                     Create Free Account
                     <ArrowRight className="w-5 h-5 ml-1" />
                   </Link>

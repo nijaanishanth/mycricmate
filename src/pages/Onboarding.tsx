@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { userApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Logo from "@/components/Logo";
 import RoleCard from "@/components/RoleCard";
-import { Input } from "@/components/ui/input";
+import GooglePlacesAutocomplete from "@/components/GooglePlacesAutocomplete";
 import { Slider } from "@/components/ui/slider";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   User, 
   Users, 
@@ -13,7 +16,6 @@ import {
   Briefcase, 
   ArrowRight, 
   ArrowLeft,
-  MapPin,
   Check
 } from "lucide-react";
 
@@ -22,10 +24,15 @@ type Step = "role" | "location" | "complete";
 
 const Onboarding = () => {
   const navigate = useNavigate();
+  const { updateUser } = useAuth();
   const [step, setStep] = useState<Step>("role");
   const [selectedRoles, setSelectedRoles] = useState<Role[]>([]);
   const [city, setCity] = useState("");
+  const [latitude, setLatitude] = useState<string>();
+  const [longitude, setLongitude] = useState<string>();
   const [radius, setRadius] = useState([25]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const roles = [
     { id: "player" as Role, icon: User, title: "Player", description: "Find teams and showcase your cricket skills" },
@@ -42,11 +49,39 @@ const Onboarding = () => {
     );
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === "role" && selectedRoles.length > 0) {
       setStep("location");
     } else if (step === "location" && city) {
-      setStep("complete");
+      setLoading(true);
+      setError("");
+      
+      try {
+        // Save onboarding data to backend
+        const updatedUser = await userApi.completeOnboarding({
+          roles: selectedRoles,
+          city,
+          latitude,
+          longitude,
+          discovery_radius: radius[0],
+        });
+        
+        // Update user in context
+        updateUser(updatedUser);
+        setStep("complete");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to save onboarding data");
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const handleLocationChange = (value: string, lat?: string, lng?: string) => {
+    setCity(value);
+    if (lat && lng) {
+      setLatitude(lat);
+      setLongitude(lng);
     }
   };
 
@@ -105,6 +140,12 @@ const Onboarding = () => {
                 ))}
               </div>
 
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="flex justify-between">
                 <Button variant="ghost" asChild>
                   <Link to="/">
@@ -138,21 +179,20 @@ const Onboarding = () => {
 
               <div className="space-y-6 mb-8">
                 <div>
-                  <label className="text-sm font-medium mb-2 block">Your City</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <Input 
-                      placeholder="Enter your city"
-                      value={city}
-                      onChange={(e) => setCity(e.target.value)}
-                      className="pl-10 h-12"
-                    />
-                  </div>
+                  <label className="text-sm font-medium mb-2 block">Your City (US Only)</label>
+                  <GooglePlacesAutocomplete
+                    value={city}
+                    onChange={handleLocationChange}
+                    placeholder="Search for your city..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Start typing to search for cities in the United States
+                  </p>
                 </div>
 
                 <div>
                   <label className="text-sm font-medium mb-4 block">
-                    Discovery Radius: <span className="text-primary font-bold">{radius[0]} km</span>
+                    Discovery Radius: <span className="text-primary font-bold">{radius[0]} miles</span>
                   </label>
                   <Slider
                     value={radius}
@@ -163,23 +203,29 @@ const Onboarding = () => {
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                    <span>5 km</span>
-                    <span>100 km</span>
+                    <span>5 miles</span>
+                    <span>100 miles</span>
                   </div>
                 </div>
               </div>
 
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
               <div className="flex justify-between">
-                <Button variant="ghost" onClick={() => setStep("role")}>
+                <Button variant="ghost" onClick={() => setStep("role")} disabled={loading}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back
                 </Button>
                 <Button 
                   variant="hero" 
                   onClick={handleNext}
-                  disabled={!city}
+                  disabled={!city || loading}
                 >
-                  Continue
+                  {loading ? "Saving..." : "Continue"}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </div>

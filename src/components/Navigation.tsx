@@ -49,7 +49,7 @@ const Navigation = () => {
               <Link to="/login">Log in</Link>
             </Button>
             <Button variant="hero" asChild>
-              <Link to="/signup">Get Started</Link>
+              <Link to="/register">Get Started</Link>
             </Button>
           </div>
 
@@ -92,7 +92,7 @@ const Navigation = () => {
                   <Link to="/login">Log in</Link>
                 </Button>
                 <Button variant="hero" asChild>
-                  <Link to="/signup">Get Started</Link>
+                  <Link to="/register">Get Started</Link>
                 </Button>
               </div>
             </div>
