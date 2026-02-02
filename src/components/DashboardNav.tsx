@@ -131,9 +131,19 @@ const DashboardNav = ({ currentRole, onRoleChange, availableRoles }: DashboardNa
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem className="gap-2 cursor-pointer">
+                <DropdownMenuItem 
+                  className="gap-2 cursor-pointer"
+                  onClick={() => navigate('/dashboard')}
+                >
                   <User className="w-4 h-4" />
-                  Profile
+                  Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="gap-2 cursor-pointer"
+                  onClick={() => navigate('/player/profile')}
+                >
+                  <Settings className="w-4 h-4" />
+                  Edit Profile
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="gap-2 cursor-pointer"

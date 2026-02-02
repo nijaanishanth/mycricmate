@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Logo from "@/components/Logo";
 import RoleCard from "@/components/RoleCard";
-import GooglePlacesAutocomplete from "@/components/GooglePlacesAutocomplete";
+import LocationAutocomplete from "@/components/LocationAutocomplete";
 import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
@@ -180,7 +180,7 @@ const Onboarding = () => {
               <div className="space-y-6 mb-8">
                 <div>
                   <label className="text-sm font-medium mb-2 block">Your City (US Only)</label>
-                  <GooglePlacesAutocomplete
+                  <LocationAutocomplete
                     value={city}
                     onChange={handleLocationChange}
                     placeholder="Search for your city..."

@@ -1,5 +1,6 @@
-from sqlalchemy import Column, String, DateTime, Boolean, Integer, Enum as SQLEnum, ARRAY
+from sqlalchemy import Column, String, DateTime, Boolean, Integer, Enum as SQLEnum, ARRAY, ForeignKey, Text, Date
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 import enum
@@ -16,6 +17,34 @@ class UserRole(str, enum.Enum):
 class AuthProvider(str, enum.Enum):
     EMAIL = "email"
     GOOGLE = "google"
+
+
+class ApplicationStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+
+
+class InvitationStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    EXPIRED = "expired"
+
+
+class SkillLevel(str, enum.Enum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+    PROFESSIONAL = "professional"
+
+
+class PlayingRole(str, enum.Enum):
+    BATSMAN = "batsman"
+    BOWLER = "bowler"
+    ALL_ROUNDER = "all-rounder"
+    WICKET_KEEPER = "wicket-keeper"
 
 
 class User(Base):
@@ -43,6 +72,7 @@ class User(Base):
     playing_role = Column(String, nullable=True)
     experience_years = Column(Integer, nullable=True)
     preferred_formats = Column(ARRAY(String), default=[])
+    is_available = Column(Boolean, default=True)  # Player availability toggle
     
     # Authentication
     auth_provider = Column(SQLEnum(AuthProvider), default=AuthProvider.EMAIL)
@@ -72,3 +102,164 @@ class RefreshToken(Base):
     
     def __repr__(self):
         return f"<RefreshToken {self.token[:10]}...>"
+
+
+class Team(Base):
+    __tablename__ = "teams"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    captain_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    city = Column(String, nullable=True)
+    home_ground = Column(String, nullable=True)
+    established_date = Column(Date, nullable=True)
+    logo_url = Column(String, nullable=True)
+    preferred_formats = Column(ARRAY(String), default=[])
+    is_active = Column(Boolean, default=True)
+    max_players = Column(Integer, default=15)
+    current_player_count = Column(Integer, default=0)
+    is_squad_full = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<Team {self.name}>"
+
+
+class Tournament(Base):
+    __tablename__ = "tournaments"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    organizer_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    format = Column(String, nullable=False)  # T20, T10, ODI, etc.
+    city = Column(String, nullable=True)
+    venue = Column(String, nullable=True)
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    registration_deadline = Column(Date, nullable=False)
+    max_teams = Column(Integer, nullable=False)
+    entry_fee = Column(Integer, default=0)
+    prize_pool = Column(Integer, default=0)
+    logo_url = Column(String, nullable=True)
+    is_published = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<Tournament {self.name}>"
+
+
+class TeamApplication(Base):
+    __tablename__ = "team_applications"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    team_id = Column(UUID(as_uuid=True), ForeignKey('teams.id'), nullable=False)
+    player_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    status = Column(SQLEnum(ApplicationStatus), default=ApplicationStatus.PENDING)
+    message = Column(Text, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<TeamApplication player={self.player_id} team={self.team_id}>"
+
+
+class TeamInvitation(Base):
+    __tablename__ = "team_invitations"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    team_id = Column(UUID(as_uuid=True), ForeignKey('teams.id'), nullable=False)
+    player_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    invited_by = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    status = Column(SQLEnum(InvitationStatus), default=InvitationStatus.PENDING)
+    message = Column(Text, nullable=True)
+    expires_at = Column(DateTime, nullable=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<TeamInvitation player={self.player_id} team={self.team_id}>"
+
+
+class PlayerTournament(Base):
+    """Track tournaments a player has participated in"""
+    __tablename__ = "player_tournaments"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    player_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    tournament_id = Column(UUID(as_uuid=True), ForeignKey('tournaments.id'), nullable=False)
+    team_id = Column(UUID(as_uuid=True), ForeignKey('teams.id'), nullable=True)
+    placement = Column(Integer, nullable=True)  # 1st, 2nd, 3rd, etc.
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<PlayerTournament player={self.player_id} tournament={self.tournament_id}>"
+
+
+class PlayerAvailability(Base):
+    """Track player availability for specific dates"""
+    __tablename__ = "player_availability"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    player_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    date = Column(Date, nullable=False)
+    is_available = Column(Boolean, default=True)
+    notes = Column(String, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<PlayerAvailability player={self.player_id} date={self.date}>"
+
+
+class PlayerRequirement(Base):
+    """Team's player recruitment requirements"""
+    __tablename__ = "player_requirements"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    team_id = Column(UUID(as_uuid=True), ForeignKey('teams.id'), nullable=False)
+    required_role = Column(SQLEnum(PlayingRole), nullable=False)
+    skill_level = Column(SQLEnum(SkillLevel), nullable=True)
+    min_experience_years = Column(Integer, nullable=True)
+    max_experience_years = Column(Integer, nullable=True)
+    min_age = Column(Integer, nullable=True)
+    max_age = Column(Integer, nullable=True)
+    preferred_formats = Column(ARRAY(String), default=[])
+    availability_start_date = Column(Date, nullable=True)
+    availability_end_date = Column(Date, nullable=True)
+    positions_available = Column(Integer, default=1)
+    description = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<PlayerRequirement team={self.team_id} role={self.required_role}>"
+
+
+class TeamTournamentParticipation(Base):
+    """Track tournaments a team has participated in"""
+    __tablename__ = "team_tournament_participations"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    team_id = Column(UUID(as_uuid=True), ForeignKey('teams.id'), nullable=False)
+    tournament_id = Column(UUID(as_uuid=True), ForeignKey('tournaments.id'), nullable=False)
+    placement = Column(Integer, nullable=True)  # 1st, 2nd, 3rd, etc.
+    registration_date = Column(DateTime, default=datetime.utcnow)
+    is_confirmed = Column(Boolean, default=False)
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f"<TeamTournamentParticipation team={self.team_id} tournament={self.tournament_id}>"
