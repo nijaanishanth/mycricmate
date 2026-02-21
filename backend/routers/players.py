@@ -16,7 +16,7 @@ from schemas import (
     TeamApplicationCreate, TeamApplicationResponse, TeamApplicationUpdate,
     TeamInvitationResponse, TeamInvitationUpdate,
     AvailabilityToggle, PlayerAvailabilityCreate, PlayerAvailabilityResponse,
-    PlayerProfileResponse
+    PlayerProfileResponse, PlayerProfileUpdate
 )
 
 router = APIRouter(prefix="/players", tags=["players"])
@@ -61,6 +61,24 @@ def get_player_profile(
     }
     
     return profile_data
+
+
+@router.put("/me/profile", response_model=PlayerProfileResponse)
+def update_player_profile(
+    profile_update: PlayerProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update current player's profile"""
+    # Update the user fields
+    for field, value in profile_update.model_dump(exclude_unset=True).items():
+        setattr(current_user, field, value)
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    # Return the full profile
+    return get_player_profile(current_user, db)
 
 
 @router.post("/me/availability", response_model=dict)

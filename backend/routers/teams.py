@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 from datetime import datetime, timedelta
+from pydantic import ValidationError
 
 from database import get_db
 from models import Team, PlayerRequirement, TeamTournamentParticipation, User, TeamApplication, TeamInvitation, InvitationStatus, ApplicationStatus
@@ -20,6 +21,25 @@ from schemas import TeamCreate, TeamUpdate, TeamResponse, TeamApplicationRespons
 from auth import get_current_user
 
 router = APIRouter(prefix="/teams", tags=["teams"])
+
+
+def get_team_dict(team: Team) -> dict:
+    """Helper function to convert Team model to dict for response"""
+    return {
+        "id": team.id,  # Keep as UUID
+        "name": team.name,
+        "description": team.description,
+        "captain_id": team.captain_id,  # Keep as UUID
+        "city": team.city,
+        "home_ground": team.home_ground,
+        "established_date": team.established_date,  # Keep as date
+        "logo_url": team.logo_url,
+        "preferred_formats": list(team.preferred_formats) if team.preferred_formats else [],
+        "max_players": team.max_players,
+        "is_active": team.is_active,
+        "created_at": team.created_at,  # Keep as datetime
+        "updated_at": team.updated_at,  # Keep as datetime
+    }
 
 
 @router.post("", response_model=TeamResponse, status_code=status.HTTP_201_CREATED)
@@ -43,6 +63,54 @@ async def create_team(
     db.commit()
     db.refresh(db_team)
     return db_team
+
+
+@router.get("/my-teams", response_model=List[TeamResponse])
+async def get_my_teams(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get all teams where the current user is the captain"""
+    teams = db.query(Team).filter(Team.captain_id == current_user.id).all()
+    
+    # Convert to dict list
+    return [get_team_dict(team) for team in teams]
+
+
+@router.put("/me", response_model=TeamResponse)
+async def update_my_team(
+    team_update: TeamUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Update the current user's team (Captain only). Creates a team if one doesn't exist."""
+    if "captain" not in current_user.roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only captains can update teams"
+        )
+    
+    # Get the user's first team (assuming one team per captain for now)
+    db_team = db.query(Team).filter(Team.captain_id == current_user.id).first()
+    
+    # If no team exists, create one
+    if not db_team:
+        db_team = Team(
+            name=team_update.name or "My Team",
+            captain_id=current_user.id
+        )
+        db.add(db_team)
+        db.flush()  # Get the ID without committing yet
+    
+    # Update team fields
+    for field, value in team_update.model_dump(exclude_unset=True).items():
+        setattr(db_team, field, value)
+    
+    db.commit()
+    db.refresh(db_team)
+    
+    # Return team as dict
+    return get_team_dict(db_team)
 
 
 @router.get("/{team_id}", response_model=TeamProfileExtended)

@@ -140,7 +140,7 @@ const DashboardNav = ({ currentRole, onRoleChange, availableRoles }: DashboardNa
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="gap-2 cursor-pointer"
-                  onClick={() => navigate('/player/profile')}
+                  onClick={() => navigate('/profile')}
                 >
                   <Settings className="w-4 h-4" />
                   Edit Profile

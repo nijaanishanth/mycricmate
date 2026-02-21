@@ -109,6 +109,8 @@ class TeamCreate(TeamBase):
 
 
 class TeamUpdate(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    
     name: Optional[str] = None
     description: Optional[str] = None
     city: Optional[str] = None
@@ -119,11 +121,19 @@ class TeamUpdate(BaseModel):
     max_players: Optional[int] = None
 
 
-class TeamResponse(TeamBase):
+class TeamResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     
     id: UUID
+    name: str
+    description: Optional[str] = None
     captain_id: UUID
+    city: Optional[str] = None
+    home_ground: Optional[str] = None
+    established_date: Optional[date] = None
+    logo_url: Optional[str] = None
+    preferred_formats: Optional[List[str]] = None
+    max_players: Optional[int] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -236,6 +246,14 @@ class PlayerProfileResponse(BaseModel):
     preferred_formats: List[str] = []
     is_available: bool
     past_tournaments: List[dict] = []
+
+
+class PlayerProfileUpdate(BaseModel):
+    playing_role: Optional[str] = None
+    batting_style: Optional[str] = None
+    bowling_style: Optional[str] = None
+    experience_years: Optional[int] = None
+    preferred_formats: Optional[List[str]] = None
     
 
 class AvailabilityToggle(BaseModel):
