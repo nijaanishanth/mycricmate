@@ -18,6 +18,9 @@ interface SwipeCardProps {
   formats?: string[];
   teamName?: string;
   homeGround?: string;
+  description?: string;
+  lookingFor?: string[];
+  membersCount?: number;
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
 }
@@ -36,6 +39,9 @@ const SwipeCard = ({
   formats = [],
   teamName,
   homeGround,
+  description,
+  lookingFor = [],
+  membersCount,
   onSwipeLeft,
   onSwipeRight,
 }: SwipeCardProps) => {
@@ -145,8 +151,8 @@ const SwipeCard = ({
           {type === "player" && role && (
             <p className="text-primary font-semibold">{role}</p>
           )}
-          {type === "team" && teamName && (
-            <p className="text-primary font-semibold">{teamName}</p>
+          {type === "team" && description && (
+            <p className="text-muted-foreground text-sm mt-1">{description}</p>
           )}
         </div>
 
@@ -180,10 +186,32 @@ const SwipeCard = ({
           </div>
         )}
 
-        {type === "team" && homeGround && (
-          <div className="flex items-center gap-2 text-sm">
-            <Trophy className="w-4 h-4 text-primary" />
-            <span>{homeGround}</span>
+        {type === "team" && (
+          <div className="space-y-2">
+            {homeGround && (
+              <div className="flex items-center gap-2 text-sm">
+                <Trophy className="w-4 h-4 text-primary" />
+                <span>Home: {homeGround}</span>
+              </div>
+            )}
+            {membersCount && (
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span>{membersCount} members</span>
+              </div>
+            )}
+            {lookingFor.length > 0 && (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground mb-1">Looking for:</p>
+                <div className="flex flex-wrap gap-1">
+                  {lookingFor.map((position) => (
+                    <Badge key={position} variant="outline" className="text-xs">
+                      {position}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
