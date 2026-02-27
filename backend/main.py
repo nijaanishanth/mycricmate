@@ -6,8 +6,11 @@ from config import settings
 from database import engine, Base
 from routers import auth, users, players, teams, admin, chat
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Create database tables (wrapped so a DB hiccup doesn't crash startup)
+try:
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    print(f"Warning: could not create tables on startup: {e}")
 
 # Create FastAPI app
 app = FastAPI(
