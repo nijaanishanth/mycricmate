@@ -30,10 +30,15 @@ async def validation_exception_handler(request, exc):
         content={"detail": exc.errors()},
     )
 
-# Configure CORS
+# Configure CORS — include all known origins; FRONTEND_URL covers the deployed Render URL
+_cors_origins = list({
+    settings.frontend_url,
+    "http://localhost:8080",
+    "http://localhost:5173",
+})
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:8080", "http://localhost:5173"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
