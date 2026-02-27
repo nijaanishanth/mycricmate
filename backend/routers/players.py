@@ -15,11 +15,88 @@ from schemas import (
     UserResponse, TeamResponse, TournamentResponse,
     TeamApplicationCreate, TeamApplicationResponse, TeamApplicationUpdate,
     TeamInvitationResponse, TeamInvitationUpdate,
-    AvailabilityToggle, PlayerAvailabilityCreate, PlayerAvailabilityResponse,
-    PlayerProfileResponse, PlayerProfileUpdate
+    AvailabilityToggle, WeeklyAvailabilityUpdate, PlayerAvailabilityCreate, PlayerAvailabilityResponse,
+    PlayerProfileResponse, PlayerProfileUpdate,
+    DiscoverPlayerCard, DiscoverTeamCard,
 )
 
 router = APIRouter(prefix="/players", tags=["players"])
+
+
+@router.get("/discover", response_model=List[DiscoverPlayerCard])
+def discover_players(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return available players for captains to swipe on (excludes the caller)."""
+    players = (
+        db.query(User)
+        .filter(
+            User.id != current_user.id,
+            User.is_active == True,
+            User.profile_visible == True,
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return [
+        DiscoverPlayerCard(
+            id=str(p.id),
+            full_name=p.full_name or p.email,
+            avatar_url=p.avatar_url,
+            city=p.city,
+            playing_role=p.playing_role,
+            batting_style=p.batting_style,
+            bowling_style=p.bowling_style,
+            experience_years=p.experience_years,
+            preferred_formats=list(p.preferred_formats or []),
+            is_available=p.is_available,
+        )
+        for p in players
+    ]
+
+
+@router.get("/discover/teams", response_model=List[DiscoverTeamCard])
+def discover_teams(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return active teams for players to swipe on (excludes teams the caller captains)."""
+    teams = (
+        db.query(Team)
+        .filter(
+            Team.is_active == True,
+            Team.is_squad_full == False,
+            Team.captain_id != current_user.id,
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    result = []
+    for t in teams:
+        captain = db.query(User).filter(User.id == t.captain_id).first()
+        result.append(
+            DiscoverTeamCard(
+                id=str(t.id),
+                name=t.name,
+                logo_url=t.logo_url,
+                city=t.city,
+                home_ground=t.home_ground,
+                description=t.description,
+                preferred_formats=list(t.preferred_formats or []),
+                current_player_count=t.current_player_count or 0,
+                max_players=t.max_players or 15,
+                captain_name=captain.full_name if captain else None,
+                captain_id=str(t.captain_id) if t.captain_id else None,
+            )
+        )
+    return result
 
 
 @router.get("/me/profile", response_model=PlayerProfileResponse)
@@ -94,6 +171,33 @@ def toggle_availability(
     return {
         "message": f"Availability set to {'available' if availability.is_available else 'unavailable'}",
         "is_available": current_user.is_available
+    }
+
+
+@router.get("/me/availability/weekly", response_model=dict)
+def get_weekly_availability(
+    current_user: User = Depends(get_current_user),
+):
+    """Get the player's weekly availability schedule."""
+    return {"schedule": current_user.weekly_availability or {}}
+
+
+@router.put("/me/availability/weekly", response_model=dict)
+def set_weekly_availability(
+    payload: WeeklyAvailabilityUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Save the player's weekly availability schedule."""
+    current_user.weekly_availability = payload.schedule
+    # If any slots are set, mark the player as generally available
+    has_slots = any(len(slots) > 0 for slots in payload.schedule.values())
+    current_user.is_available = has_slots
+    db.commit()
+    return {
+        "message": "Weekly availability updated",
+        "schedule": current_user.weekly_availability,
+        "is_available": current_user.is_available,
     }
 
 
@@ -327,3 +431,100 @@ def respond_to_invitation(
     db.refresh(invitation)
     
     return invitation
+
+
+# ── Swipe-right endpoints (mutual match logic) ────────────────────────────────
+
+@router.post("/teams/{team_id}/swipe-right")
+def player_swipe_right_on_team(
+    team_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Player swipes right on a team.
+    Records a TeamApplication. If the team's captain has already invited this
+    player (i.e. swiped right on them), returns matched=True.
+    """
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    # Idempotent: don't create a second application
+    existing = db.query(TeamApplication).filter(
+        TeamApplication.team_id == team_id,
+        TeamApplication.player_id == current_user.id,
+    ).first()
+    if not existing:
+        new_app = TeamApplication(
+            team_id=team_id,
+            player_id=current_user.id,
+            status=ApplicationStatus.PENDING,
+        )
+        db.add(new_app)
+        db.commit()
+
+    # Check if the captain has already swiped right on this player
+    captain_liked = db.query(TeamInvitation).filter(
+        TeamInvitation.team_id == team_id,
+        TeamInvitation.player_id == current_user.id,
+        TeamInvitation.status == InvitationStatus.PENDING,
+    ).first()
+
+    return {
+        "matched": captain_liked is not None,
+        "team_id": str(team_id),
+        "captain_id": str(team.captain_id) if team.captain_id else None,
+        "team_name": team.name,
+    }
+
+
+@router.post("/players/{player_id}/swipe-right")
+def captain_swipe_right_on_player(
+    player_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Captain swipes right on a player.
+    Records a TeamInvitation for the captain's team. If the player has already
+    applied to this team (i.e. swiped right on it), returns matched=True.
+    """
+    # Captain must have a team
+    team = db.query(Team).filter(Team.captain_id == current_user.id).first()
+    if not team:
+        raise HTTPException(status_code=400, detail="You must have a team to invite players")
+
+    player = db.query(User).filter(User.id == player_id).first()
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+
+    # Idempotent: don't create a duplicate invitation
+    existing = db.query(TeamInvitation).filter(
+        TeamInvitation.team_id == team.id,
+        TeamInvitation.player_id == player_id,
+        TeamInvitation.status == InvitationStatus.PENDING,
+    ).first()
+    if not existing:
+        new_inv = TeamInvitation(
+            team_id=team.id,
+            player_id=player_id,
+            invited_by=current_user.id,
+            status=InvitationStatus.PENDING,
+            expires_at=datetime.utcnow() + timedelta(days=30),
+        )
+        db.add(new_inv)
+        db.commit()
+
+    # Check if the player has already applied to this team
+    player_liked = db.query(TeamApplication).filter(
+        TeamApplication.team_id == team.id,
+        TeamApplication.player_id == player_id,
+        TeamApplication.status == ApplicationStatus.PENDING,
+    ).first()
+
+    return {
+        "matched": player_liked is not None,
+        "player_id": str(player_id),
+        "player_name": player.full_name,
+    }

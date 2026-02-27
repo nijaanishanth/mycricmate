@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { userApi } from "@/lib/api";
 import DashboardNav from "@/components/DashboardNav";
+import AvailabilityScheduleDialog from "@/components/AvailabilityScheduleDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -20,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { User, Users, Trophy, Briefcase, EyeOff, Eye, Trash2, AlertTriangle } from "lucide-react";
+import { User, Users, Trophy, Briefcase, EyeOff, Eye, Trash2, AlertTriangle, Calendar } from "lucide-react";
 
 type Role = "player" | "captain" | "organizer" | "staff";
 
@@ -109,6 +110,65 @@ const Settings = () => {
           )}
 
           <div className="space-y-6">
+            {/* Quick link: Edit Profile (moved into Settings) */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Edit Profile</CardTitle>
+                <CardDescription>
+                  Update your player/captain/organizer/staff profiles from a single place
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <User className="w-5 h-5 text-primary" />
+                    <div>
+                      <p className="font-medium">Manage your public profiles</p>
+                      <p className="text-sm text-muted-foreground">Edit player, team, organizer or staff profiles</p>
+                    </div>
+                  </div>
+                  <Button variant="outline" onClick={() => navigate('/profile')}>
+                    Edit Profile
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Availability Schedule */}
+            {(user?.roles ?? []).includes("player") && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Availability Schedule</CardTitle>
+                  <CardDescription>
+                    Set the days and time slots when you are available to play each week
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="font-medium">Weekly schedule</p>
+                        <p className="text-sm text-muted-foreground">
+                          {user?.weekly_availability &&
+                          Object.values(user.weekly_availability).some(s => s.length > 0)
+                            ? `${Object.values(user.weekly_availability).reduce((n, s) => n + s.length, 0)} active slots across the week`
+                            : "No schedule set — you appear as unavailable"}
+                        </p>
+                      </div>
+                    </div>
+                    <AvailabilityScheduleDialog
+                      initialSchedule={user?.weekly_availability}
+                      trigger={
+                        <Button variant="outline">
+                          Edit Schedule
+                        </Button>
+                      }
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             {/* Current Roles */}
             <Card>
               <CardHeader>

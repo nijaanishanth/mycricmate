@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime, date
 from uuid import UUID
 from models import UserRole, AuthProvider, ApplicationStatus, InvitationStatus, SkillLevel, PlayingRole
@@ -79,6 +79,9 @@ class UserResponse(UserBase):
     auth_provider: str
     is_verified: bool
     is_active: bool
+    is_superuser: bool = False
+    is_available: bool
+    weekly_availability: Optional[Dict[str, List[str]]] = None
     profile_visible: bool
     created_at: datetime
     last_login: Optional[datetime] = None
@@ -260,6 +263,23 @@ class AvailabilityToggle(BaseModel):
     is_available: bool
 
 
+VALID_DAYS = {"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+VALID_SLOTS = {"morning", "afternoon", "evening"}
+
+
+class WeeklyAvailabilityUpdate(BaseModel):
+    """Weekly schedule: each day maps to a list of time slots (morning/afternoon/evening)."""
+    schedule: Dict[str, List[str]]
+
+    def model_post_init(self, __context):
+        for day, slots in self.schedule.items():
+            if day not in VALID_DAYS:
+                raise ValueError(f"Invalid day: {day}")
+            for slot in slots:
+                if slot not in VALID_SLOTS:
+                    raise ValueError(f"Invalid slot '{slot}' for {day}")
+
+
 class PlayerAvailabilityCreate(BaseModel):
     date: date
     is_available: bool = True
@@ -275,3 +295,67 @@ class PlayerAvailabilityResponse(BaseModel):
     is_available: bool
     notes: Optional[str] = None
     created_at: datetime
+
+
+# ── Discovery / Swipe Feed Schemas ──────────────────────────────────────────
+
+class DiscoverPlayerCard(BaseModel):
+    """Minimal player info shown on a swipe card."""
+    id: str
+    full_name: str
+    avatar_url: Optional[str] = None
+    city: Optional[str] = None
+    playing_role: Optional[str] = None
+    batting_style: Optional[str] = None
+    bowling_style: Optional[str] = None
+    experience_years: Optional[int] = None
+    preferred_formats: List[str] = []
+    is_available: bool = True
+
+
+class DiscoverTeamCard(BaseModel):
+    """Minimal team info shown on a swipe card."""
+    id: str
+    name: str
+    logo_url: Optional[str] = None
+    city: Optional[str] = None
+    home_ground: Optional[str] = None
+    description: Optional[str] = None
+    preferred_formats: List[str] = []
+    current_player_count: int = 0
+    max_players: int = 15
+    captain_name: Optional[str] = None
+    captain_id: Optional[str] = None
+
+
+# ── Chat Schemas ──────────────────────────────────────────────────────────────
+
+class MessageCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=2000)
+
+
+class MessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    conversation_id: str
+    sender_id: str
+    content: str
+    is_read: bool
+    created_at: datetime
+
+
+class ConversationParticipant(BaseModel):
+    id: str
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class ConversationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    other_user: ConversationParticipant
+    last_message: Optional[MessageOut] = None
+    unread_count: int = 0
+    updated_at: datetime

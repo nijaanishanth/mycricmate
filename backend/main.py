@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from config import settings
 from database import engine, Base
-from routers import auth, users, players, teams
+from routers import auth, users, players, teams, admin, chat
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -30,10 +30,15 @@ async def validation_exception_handler(request, exc):
         content={"detail": exc.errors()},
     )
 
-# Configure CORS
+# Configure CORS — include all known origins; FRONTEND_URL covers the deployed Render URL
+_cors_origins = list({
+    settings.frontend_url,
+    "http://localhost:8080",
+    "http://localhost:5173",
+})
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:8080", "http://localhost:5173"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,6 +49,8 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(players.router)
 app.include_router(teams.router)
+app.include_router(admin.router)
+app.include_router(chat.router)
 
 
 @app.get("/")
