@@ -179,6 +179,9 @@ export interface User {
   auth_provider: string;
   is_verified: boolean;
   is_active: boolean;
+  is_superuser: boolean;
+  is_available: boolean;
+  weekly_availability: Record<string, string[]> | null;
   profile_visible: boolean;
   created_at: string;
   last_login?: string;
@@ -275,4 +278,186 @@ export const userApi = {
     api.patch<User>(`/users/me/visibility?profile_visible=${visible}`),
 
   deleteAccount: () => api.delete('/users/me'),
+};
+
+// Player availability API
+export const playerApi = {
+  getWeeklyAvailability: () =>
+    api.get<{ schedule: Record<string, string[]> }>('/players/me/availability/weekly'),
+
+  setWeeklyAvailability: (schedule: Record<string, string[]>) =>
+    api.put<{ message: string; schedule: Record<string, string[]>; is_available: boolean }>(
+      '/players/me/availability/weekly',
+      { schedule }
+    ),
+
+  discoverPlayers: (skip = 0, limit = 20) =>
+    api.get<DiscoverPlayerCard[]>(`/players/discover?skip=${skip}&limit=${limit}`),
+
+  discoverTeams: (skip = 0, limit = 20) =>
+    api.get<DiscoverTeamCard[]>(`/players/discover/teams?skip=${skip}&limit=${limit}`),
+
+  /** Player swipes right on a team. Returns { matched, team_id, captain_id, team_name } */
+  swipeRightOnTeam: (teamId: string) =>
+    api.post<{ matched: boolean; team_id: string; captain_id: string | null; team_name: string }>(
+      `/players/teams/${teamId}/swipe-right`, {}
+    ),
+
+  /** Captain swipes right on a player. Returns { matched, player_id, player_name } */
+  swipeRightOnPlayer: (playerId: string) =>
+    api.post<{ matched: boolean; player_id: string; player_name: string }>(
+      `/players/players/${playerId}/swipe-right`, {}
+    ),
+};
+
+// Discovery card types
+export interface DiscoverPlayerCard {
+  id: string;
+  full_name: string;
+  avatar_url?: string | null;
+  city?: string | null;
+  playing_role?: string | null;
+  batting_style?: string | null;
+  bowling_style?: string | null;
+  experience_years?: number | null;
+  preferred_formats: string[];
+  is_available: boolean;
+}
+
+export interface DiscoverTeamCard {
+  id: string;
+  name: string;
+  logo_url?: string | null;
+  city?: string | null;
+  home_ground?: string | null;
+  description?: string | null;
+  preferred_formats: string[];
+  current_player_count: number;
+  max_players: number;
+  captain_name?: string | null;
+  captain_id?: string | null;
+}
+
+// ── Admin types ───────────────────────────────────────────────────────────────
+
+export interface AdminStats {
+  total_users: number;
+  active_users: number;
+  banned_users: number;
+  total_teams: number;
+  active_teams: number;
+  total_tournaments: number;
+  new_users_this_month: number;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  full_name?: string | null;
+  city?: string | null;
+  roles: string[];
+  playing_role?: string | null;
+  is_active: boolean;
+  is_verified: boolean;
+  is_superuser: boolean;
+  created_at: string;
+  last_login?: string | null;
+}
+
+export interface AdminTeam {
+  id: string;
+  name: string;
+  city?: string | null;
+  home_ground?: string | null;
+  captain_name?: string | null;
+  captain_email?: string | null;
+  current_player_count: number;
+  max_players: number;
+  is_active: boolean;
+  is_squad_full: boolean;
+  created_at: string;
+}
+
+export interface AdminUserUpdate {
+  is_active?: boolean;
+  is_verified?: boolean;
+  is_superuser?: boolean;
+}
+
+export interface AdminTeamUpdate {
+  is_active?: boolean;
+  is_squad_full?: boolean;
+}
+
+// Admin API
+export const adminApi = {
+  getStats: () =>
+    api.get<AdminStats>('/admin/stats'),
+
+  listUsers: (search?: string, skip = 0, limit = 100) => {
+    const params = new URLSearchParams({ skip: String(skip), limit: String(limit) });
+    if (search) params.set('search', search);
+    return api.get<AdminUser[]>(`/admin/users?${params}`);
+  },
+
+  updateUser: (userId: string, data: AdminUserUpdate) =>
+    api.patch<AdminUser>(`/admin/users/${userId}`, data),
+
+  deleteUser: (userId: string) =>
+    api.delete<void>(`/admin/users/${userId}`),
+
+  listTeams: (search?: string, skip = 0, limit = 100) => {
+    const params = new URLSearchParams({ skip: String(skip), limit: String(limit) });
+    if (search) params.set('search', search);
+    return api.get<AdminTeam[]>(`/admin/teams?${params}`);
+  },
+
+  updateTeam: (teamId: string, data: AdminTeamUpdate) =>
+    api.patch<AdminTeam>(`/admin/teams/${teamId}`, data),
+
+  deleteTeam: (teamId: string) =>
+    api.delete<void>(`/admin/teams/${teamId}`),
+};
+
+// ── Chat types ────────────────────────────────────────────────────────────────
+
+export interface ChatParticipant {
+  id: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface Conversation {
+  id: string;
+  other_user: ChatParticipant;
+  last_message?: ChatMessage | null;
+  unread_count: number;
+  updated_at: string;
+}
+
+// Chat API
+export const chatApi = {
+  listConversations: () =>
+    api.get<Conversation[]>('/chat/conversations'),
+
+  getOrCreateConversation: (otherUserId: string) =>
+    api.post<Conversation>(`/chat/conversations?other_user_id=${otherUserId}`, {}),
+
+  getMessages: (conversationId: string, skip = 0, limit = 50) =>
+    api.get<ChatMessage[]>(`/chat/conversations/${conversationId}/messages?skip=${skip}&limit=${limit}`),
+
+  sendMessage: (conversationId: string, content: string) =>
+    api.post<ChatMessage>(`/chat/conversations/${conversationId}/messages`, { content }),
+
+  getUnreadCount: () =>
+    api.get<{ unread_count: number }>('/chat/unread-count'),
 };

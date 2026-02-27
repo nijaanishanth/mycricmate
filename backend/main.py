@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from config import settings
 from database import engine, Base
-from routers import auth, users, players, teams
+from routers import auth, users, players, teams, admin, chat
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -44,6 +44,8 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(players.router)
 app.include_router(teams.router)
+app.include_router(admin.router)
+app.include_router(chat.router)
 
 
 @app.get("/")

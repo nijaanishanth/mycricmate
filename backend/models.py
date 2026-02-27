@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, Integer, Enum as SQLEnum, ARRAY, ForeignKey, Text, Date
+from sqlalchemy import Column, String, DateTime, Boolean, Integer, Enum as SQLEnum, ARRAY, ForeignKey, Text, Date, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -73,12 +73,15 @@ class User(Base):
     experience_years = Column(Integer, nullable=True)
     preferred_formats = Column(ARRAY(String), default=[])
     is_available = Column(Boolean, default=True)  # Player availability toggle
+    # Weekly schedule: { "monday": ["morning","afternoon"], "tuesday": ["evening"], ... }
+    weekly_availability = Column(JSON, nullable=True, default=None)
     
     # Authentication
     auth_provider = Column(SQLEnum(AuthProvider), default=AuthProvider.EMAIL)
     provider_id = Column(String, nullable=True)  # OAuth provider user ID
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)  # Platform admin / owner
     profile_visible = Column(Boolean, default=True)  # Control visibility in feeds
     
     # Timestamps
@@ -263,3 +266,37 @@ class TeamTournamentParticipation(Base):
     
     def __repr__(self):
         return f"<TeamTournamentParticipation team={self.team_id} tournament={self.tournament_id}>"
+
+
+class Conversation(Base):
+    """A direct-message thread between exactly two users."""
+    __tablename__ = "conversations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # The two participants — always store with user_a_id < user_b_id (string compare) for uniqueness
+    user_a_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    user_b_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    messages = relationship("Message", back_populates="conversation", order_by="Message.created_at")
+
+    def __repr__(self):
+        return f"<Conversation {self.user_a_id} <-> {self.user_b_id}>"
+
+
+class Message(Base):
+    """A single chat message in a conversation."""
+    __tablename__ = "messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id = Column(UUID(as_uuid=True), ForeignKey('conversations.id'), nullable=False, index=True)
+    sender_id = Column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
+    content = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    conversation = relationship("Conversation", back_populates="messages")
+
+    def __repr__(self):
+        return f"<Message sender={self.sender_id} conv={self.conversation_id}>"
