@@ -35,13 +35,16 @@ const Onboarding = () => {
   const [error, setError] = useState("");
 
   const roles = [
-    { id: "player" as Role, icon: User, title: "Player", description: "Find teams and showcase your cricket skills" },
-    { id: "captain" as Role, icon: Users, title: "Team Captain", description: "Build and manage your cricket team" },
-    { id: "organizer" as Role, icon: Trophy, title: "Tournament Organizer", description: "Create and run cricket tournaments" },
-    { id: "staff" as Role, icon: Briefcase, title: "Support Staff", description: "Umpire, score, or commentate matches" },
+    { id: "player" as Role, icon: User, title: "Player", description: "Find teams and showcase your cricket skills", comingSoon: false },
+    { id: "captain" as Role, icon: Users, title: "Team Captain", description: "Build and manage your cricket team", comingSoon: false },
+    { id: "organizer" as Role, icon: Trophy, title: "Tournament Organizer", description: "Create and run cricket tournaments", comingSoon: true },
+    { id: "staff" as Role, icon: Briefcase, title: "Support Staff", description: "Umpire, score, or commentate matches", comingSoon: true },
   ];
 
   const toggleRole = (role: Role) => {
+    // Prevent selecting coming-soon roles
+    const roleConfig = roles.find(r => r.id === role);
+    if (roleConfig?.comingSoon) return;
     setSelectedRoles(prev => 
       prev.includes(role) 
         ? prev.filter(r => r !== role)
@@ -136,6 +139,7 @@ const Onboarding = () => {
                     description={role.description}
                     selected={selectedRoles.includes(role.id)}
                     onClick={() => toggleRole(role.id)}
+                    comingSoon={role.comingSoon}
                   />
                 ))}
               </div>

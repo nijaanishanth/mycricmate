@@ -3,6 +3,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import DashboardNav from "@/components/DashboardNav";
 import StatCard from "@/components/StatCard";
 import SwipeCard from "@/components/SwipeCard";
+import ChatPanel from "@/components/ChatPanel";
+import AvailabilityScheduleDialog from "@/components/AvailabilityScheduleDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,12 +24,14 @@ import {
   MapPin,
   RefreshCw,
   CheckCircle,
-  XCircle
+  XCircle,
+  Loader2,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, playerApi, DiscoverPlayerCard, DiscoverTeamCard } from "@/lib/api";
 import { toast } from "sonner";
 
 type Role = "player" | "captain" | "organizer" | "staff";
+const RESTRICTED_ROLES: Role[] = ["organizer", "staff"];
 
 interface Tournament {
   id: string;
@@ -42,285 +46,266 @@ interface Tournament {
   max_teams: number;
 }
 
-interface Team {
-  id: string;
-  name: string;
-  description?: string;
-  city?: string;
-  home_ground?: string;
-  preferred_formats: string[];
-  captain_id: string;
-  looking_for_roles?: string[];
-  rating?: number;
-  distance?: string;
+// ── helpers to map API data → SwipeCard props ────────────────────────────────
+
+function playerToSwipeProps(p: DiscoverPlayerCard) {
+  const expLabel = p.experience_years ? `${p.experience_years} yr exp` : null;
+  const parts = [p.batting_style, p.bowling_style].filter(Boolean);
+  return {
+    id: p.id,
+    type: "player" as const,
+    name: p.full_name,
+    image: p.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(p.full_name)}`,
+    location: p.city || "Location not set",
+    distance: "",
+    rating: 4.5,
+    role: p.playing_role || "Player",
+    battingStyle: p.batting_style || undefined,
+    bowlingStyle: p.bowling_style || undefined,
+    experience: expLabel || undefined,
+    formats: p.preferred_formats,
+    isAvailable: p.is_available,
+  };
 }
 
-// Mock data for team swipe cards (for players)
-const mockTeams = [
-  {
-    id: 1,
+function teamToSwipeProps(t: DiscoverTeamCard) {
+  return {
+    id: t.id,
     type: "team" as const,
-    name: "Mumbai Warriors",
-    image: "https://api.dicebear.com/7.x/initials/svg?seed=MW",
-    location: "Mumbai, India",
-    distance: "3 km away",
-    rating: 4.7,
-    description: "Professional cricket team looking for skilled all-rounders",
-    homeGround: "Wankhede Stadium",
-    lookingFor: ["All-Rounder", "Bowler"],
-    formats: ["T20", "ODI"],
-    membersCount: 15,
-  },
-  {
-    id: 2,
-    type: "team" as const,
-    name: "Pune Strikers",
-    image: "https://api.dicebear.com/7.x/initials/svg?seed=PS",
-    location: "Pune, India",
-    distance: "8 km away",
+    name: t.name,
+    image: t.logo_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(t.name)}`,
+    location: t.city || "Location not set",
+    distance: "",
     rating: 4.5,
-    description: "Competitive team seeking wicket-keepers and opening batsmen",
-    homeGround: "MCA Stadium",
-    lookingFor: ["Wicket-Keeper", "Batsman"],
-    formats: ["T20", "T10"],
-    membersCount: 12,
-  },
-  {
-    id: 3,
-    type: "team" as const,
-    name: "Delhi Dynamites",
-    image: "https://api.dicebear.com/7.x/initials/svg?seed=DD",
-    location: "Delhi, India",
-    distance: "15 km away",
-    rating: 4.9,
-    description: "Premier league team looking for experienced players",
-    homeGround: "Feroz Shah Kotla",
-    lookingFor: ["Bowler", "All-Rounder"],
-    formats: ["ODI", "Test"],
-    membersCount: 18,
-  },
-];
-
-// Mock data for player swipe cards (for captains)
-const mockPlayers = [
-  {
-    id: 1,
-    type: "player" as const,
-    name: "Rahul Sharma",
-    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul",
-    location: "Mumbai, India",
-    distance: "5 km away",
-    rating: 4.8,
-    role: "All-Rounder",
-    battingStyle: "Right-handed batsman",
-    bowlingStyle: "Right-arm medium",
-    experience: "5 years experience",
-    formats: ["T20", "T10", "ODI"],
-  },
-  {
-    id: 2,
-    type: "player" as const,
-    name: "Vikram Patel",
-    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram",
-    location: "Pune, India",
-    distance: "12 km away",
-    rating: 4.5,
-    role: "Bowler",
-    battingStyle: "Left-handed batsman",
-    bowlingStyle: "Left-arm spin",
-    experience: "3 years experience",
-    formats: ["T20", "T30"],
-  },
-  {
-    id: 3,
-    type: "player" as const,
-    name: "Arjun Singh",
-    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun",
-    location: "Mumbai, India",
-    distance: "8 km away",
-    rating: 4.9,
-    role: "Wicketkeeper-Batsman",
-    battingStyle: "Right-handed batsman",
-    experience: "7 years experience",
-    formats: ["T20", "ODI", "Test"],
-  },
-];
+    description: t.description || undefined,
+    homeGround: t.home_ground || undefined,
+    lookingFor: [] as string[],
+    formats: t.preferred_formats,
+    membersCount: t.current_player_count,
+    captainName: t.captain_name || undefined,
+    captainId: t.captain_id || undefined,
+  };
+}
 
 const Dashboard = () => {
   const { user } = useAuth();
   const userRoles = useMemo(() => (user?.roles || []) as Role[], [user?.roles]);
-  
-  // Set initial role to the first available role the user has
+
+  // Only superusers can access staff / organizer views
+  const visibleRoles = useMemo<Role[]>(() => {
+    if (user?.is_superuser) return userRoles;
+    return userRoles.filter(r => !RESTRICTED_ROLES.includes(r));
+  }, [userRoles, user?.is_superuser]);
+
   const [currentRole, setCurrentRole] = useState<Role>(
-    userRoles.length > 0 ? userRoles[0] : "player"
+    visibleRoles.length > 0 ? visibleRoles[0] : "player"
   );
-  
-  // Separate indices for teams and players
-  const [currentTeamIndex, setCurrentTeamIndex] = useState(0);
+
+  // ── Real data from API ─────────────────────────────────────────────────────
+  type PlayerCard = ReturnType<typeof playerToSwipeProps>;
+  type TeamCard   = ReturnType<typeof teamToSwipeProps>;
+
+  const [players, setPlayers]         = useState<PlayerCard[]>([]);
+  const [teams, setTeams]             = useState<TeamCard[]>([]);
+  const [loadingPlayers, setLoadingPlayers] = useState(false);
+  const [loadingTeams, setLoadingTeams]     = useState(false);
+
+  // ── Swipe state (string IDs) ───────────────────────────────────────────────
+  const [currentTeamIndex, setCurrentTeamIndex]   = useState(0);
   const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
-  const [teamMatches, setTeamMatches] = useState<typeof mockTeams>([]);
-  const [playerMatches, setPlayerMatches] = useState<typeof mockPlayers>([]);
-  
-  // Track swiped IDs to prevent duplicate right swipes
-  const [swipedRightTeamIds, setSwipedRightTeamIds] = useState<Set<number>>(new Set());
-  const [swipedRightPlayerIds, setSwipedRightPlayerIds] = useState<Set<number>>(new Set());
-  const [passedTeamIds, setPassedTeamIds] = useState<Set<number>>(new Set());
-  const [passedPlayerIds, setPassedPlayerIds] = useState<Set<number>>(new Set());
-  
-  // Show passed items
-  const [showingPassedTeams, setShowingPassedTeams] = useState(false);
+
+  const [likedTeamIds,   setLikedTeamIds]   = useState<Set<string>>(new Set());
+  const [likedPlayerIds, setLikedPlayerIds] = useState<Set<string>>(new Set());
+  const [passedTeamIds,   setPassedTeamIds]   = useState<Set<string>>(new Set());
+  const [passedPlayerIds, setPassedPlayerIds] = useState<Set<string>>(new Set());
+
+  const [showingPassedTeams,   setShowingPassedTeams]   = useState(false);
   const [showingPassedPlayers, setShowingPassedPlayers] = useState(false);
-  
-  // Tournament search state
+
+  // Match lists for sidebar
+  const [teamMatches,   setTeamMatches]   = useState<TeamCard[]>([]);
+  const [playerMatches, setPlayerMatches] = useState<PlayerCard[]>([]);
+
+  // ── Chat state ─────────────────────────────────────────────────────────────
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInitialUserId, setChatInitialUserId] = useState<string | null>(null);
+
+  // Build the contacts list for ChatPanel from confirmed matches
+  const chatMatches = useMemo(() => {
+    const contacts = [];
+    // Captain view: playerMatches have .id = player's user UUID
+    for (const p of playerMatches) {
+      contacts.push({
+        userId: p.id,
+        name: p.name,
+        image: p.image,
+        subtitle: p.role,
+      });
+    }
+    // Player view: teamMatches need captainId (user UUID of the captain)
+    for (const t of teamMatches) {
+      const tid = (t as ReturnType<typeof teamToSwipeProps>).captainId;
+      if (tid) {
+        contacts.push({
+          userId: tid,
+          name: t.name,
+          image: t.image,
+          subtitle: "Team Captain",
+        });
+      }
+    }
+    return contacts;
+  }, [playerMatches, teamMatches]);
+
+  // ── Tournament search ──────────────────────────────────────────────────────
   const [isTournamentDialogOpen, setIsTournamentDialogOpen] = useState(false);
-  const [tournamentSearchCity, setTournamentSearchCity] = useState("");
+  const [tournamentSearchCity, setTournamentSearchCity]     = useState("");
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
 
-  // Update currentRole if it's not in user's roles
-  useEffect(() => {
-    if (userRoles.length > 0 && !userRoles.includes(currentRole)) {
-      setCurrentRole(userRoles[0]);
+  // ── Fetch data ─────────────────────────────────────────────────────────────
+  const fetchPlayers = useCallback(async () => {
+    setLoadingPlayers(true);
+    try {
+      const data = await playerApi.discoverPlayers(0, 50);
+      setPlayers(data.map(playerToSwipeProps));
+      setCurrentPlayerIndex(0);
+    } catch {
+      toast.error("Failed to load players");
+    } finally {
+      setLoadingPlayers(false);
     }
-  }, [userRoles, currentRole]);
+  }, []);
 
-  // Get available teams/players based on current mode
-  const availableTeams = useMemo(() => {
-    if (showingPassedTeams) {
-      return mockTeams.filter(team => passedTeamIds.has(team.id));
+  const fetchTeams = useCallback(async () => {
+    setLoadingTeams(true);
+    try {
+      const data = await playerApi.discoverTeams(0, 50);
+      setTeams(data.map(teamToSwipeProps));
+      setCurrentTeamIndex(0);
+    } catch {
+      toast.error("Failed to load teams");
+    } finally {
+      setLoadingTeams(false);
     }
-    return mockTeams.filter(team => !swipedRightTeamIds.has(team.id) && !passedTeamIds.has(team.id));
-  }, [showingPassedTeams, swipedRightTeamIds, passedTeamIds]);
+  }, []);
+
+  useEffect(() => {
+    fetchPlayers();
+    fetchTeams();
+  }, [fetchPlayers, fetchTeams]);
+
+  // Keep currentRole in sync if visible roles change
+  useEffect(() => {
+    if (visibleRoles.length > 0 && !visibleRoles.includes(currentRole)) {
+      setCurrentRole(visibleRoles[0]);
+    }
+  }, [visibleRoles, currentRole]);
+
+  // ── Derived lists ──────────────────────────────────────────────────────────
+  const availableTeams = useMemo(() => {
+    if (showingPassedTeams)
+      return teams.filter(t => passedTeamIds.has(t.id) && !likedTeamIds.has(t.id));
+    return teams.filter(t => !likedTeamIds.has(t.id) && !passedTeamIds.has(t.id));
+  }, [teams, showingPassedTeams, likedTeamIds, passedTeamIds]);
 
   const availablePlayers = useMemo(() => {
-    if (showingPassedPlayers) {
-      return mockPlayers.filter(player => passedPlayerIds.has(player.id));
-    }
-    return mockPlayers.filter(player => !swipedRightPlayerIds.has(player.id) && !passedPlayerIds.has(player.id));
-  }, [showingPassedPlayers, swipedRightPlayerIds, passedPlayerIds]);
+    if (showingPassedPlayers)
+      return players.filter(p => passedPlayerIds.has(p.id) && !likedPlayerIds.has(p.id));
+    return players.filter(p => !likedPlayerIds.has(p.id) && !passedPlayerIds.has(p.id));
+  }, [players, showingPassedPlayers, likedPlayerIds, passedPlayerIds]);
 
-  const currentTeam = availableTeams[currentTeamIndex];
+  const currentTeam   = availableTeams[currentTeamIndex];
   const currentPlayer = availablePlayers[currentPlayerIndex];
-  
-  // Check if there are passed teams/players available to review (excluding already liked ones)
-  const hasPassedTeamsToReview = useMemo(() => {
-    return mockTeams.filter(team => passedTeamIds.has(team.id) && !swipedRightTeamIds.has(team.id)).length > 0;
-  }, [passedTeamIds, swipedRightTeamIds]);
 
-  const hasPassedPlayersToReview = useMemo(() => {
-    return mockPlayers.filter(player => passedPlayerIds.has(player.id) && !swipedRightPlayerIds.has(player.id)).length > 0;
-  }, [passedPlayerIds, swipedRightPlayerIds]);
-  
+  const hasPassedTeamsToReview   = useMemo(
+    () => teams.filter(t  => passedTeamIds.has(t.id)   && !likedTeamIds.has(t.id)).length > 0,
+    [teams, passedTeamIds, likedTeamIds]
+  );
+  const hasPassedPlayersToReview = useMemo(
+    () => players.filter(p => passedPlayerIds.has(p.id) && !likedPlayerIds.has(p.id)).length > 0,
+    [players, passedPlayerIds, likedPlayerIds]
+  );
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
   const searchTournaments = useCallback(async () => {
     try {
       const response = await api.get(`/players/tournaments/search?city=${tournamentSearchCity}`) as Tournament[];
       setTournaments(response);
       toast.success(`Found ${response.length} tournaments`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to search tournaments");
     }
   }, [tournamentSearchCity]);
 
-  // Team swipe handlers (for players)
   const handleTeamSwipeLeft = () => {
-    if (currentTeam && !showingPassedTeams) {
+    if (currentTeam && !showingPassedTeams)
       setPassedTeamIds(prev => new Set(prev).add(currentTeam.id));
-    }
     setCurrentTeamIndex(prev => prev + 1);
   };
 
-  const handleTeamSwipeRight = () => {
-    if (currentTeam) {
-      if (swipedRightTeamIds.has(currentTeam.id)) {
-        toast.error("You've already applied to this team!");
-        return;
-      }
-      
-      setSwipedRightTeamIds(prev => new Set(prev).add(currentTeam.id));
-      
-      // Swiping right = Application to team
-      // Simulate a match (50% chance) - this represents team accepting the application
-      if (Math.random() > 0.5) {
+  const handleTeamSwipeRight = async () => {
+    if (!currentTeam) return;
+    if (likedTeamIds.has(currentTeam.id)) {
+      toast.error("You've already applied to this team!");
+      return;
+    }
+    setLikedTeamIds(prev => new Set(prev).add(currentTeam.id));
+    setCurrentTeamIndex(prev => prev + 1);
+    try {
+      const result = await playerApi.swipeRightOnTeam(currentTeam.id);
+      if (result.matched) {
         setTeamMatches(prev => [...prev, currentTeam]);
-        toast.success(`${currentTeam.name} accepted your application! You can now chat.`);
+        toast.success(`🎉 It's a match with ${currentTeam.name}!`);
       } else {
         toast.info(`Application sent to ${currentTeam.name}! Waiting for their response.`);
       }
+    } catch {
+      toast.error(`Failed to send application to ${currentTeam.name}`);
     }
-    
-    setCurrentTeamIndex(prev => prev + 1);
   };
 
-  // Player swipe handlers (for captains)
   const handlePlayerSwipeLeft = () => {
-    if (currentPlayer && !showingPassedPlayers) {
+    if (currentPlayer && !showingPassedPlayers)
       setPassedPlayerIds(prev => new Set(prev).add(currentPlayer.id));
-    }
     setCurrentPlayerIndex(prev => prev + 1);
   };
 
-  const handlePlayerSwipeRight = () => {
-    if (currentPlayer) {
-      if (swipedRightPlayerIds.has(currentPlayer.id)) {
-        toast.error("You've already liked this player!");
-        return;
-      }
-      
-      setSwipedRightPlayerIds(prev => new Set(prev).add(currentPlayer.id));
-      
-      // Simulate a match (50% chance)
-      if (Math.random() > 0.5) {
+  const handlePlayerSwipeRight = async () => {
+    if (!currentPlayer) return;
+    if (likedPlayerIds.has(currentPlayer.id)) {
+      toast.error("You've already liked this player!");
+      return;
+    }
+    setLikedPlayerIds(prev => new Set(prev).add(currentPlayer.id));
+    setCurrentPlayerIndex(prev => prev + 1);
+    try {
+      const result = await playerApi.swipeRightOnPlayer(currentPlayer.id);
+      if (result.matched) {
         setPlayerMatches(prev => [...prev, currentPlayer]);
-        toast.success(`It's a match with ${currentPlayer.name}! You can now chat.`);
+        toast.success(`🎉 It's a match with ${currentPlayer.name}!`);
       } else {
         toast.info(`Liked ${currentPlayer.name}! Waiting for them to like you back.`);
       }
+    } catch {
+      toast.error(`Failed to record interest in ${currentPlayer.name}`);
     }
-    
-    setCurrentPlayerIndex(prev => prev + 1);
   };
 
-  // Toggle showing passed teams
-  const showPassedTeams = () => {
-    setShowingPassedTeams(true);
-    setCurrentTeamIndex(0);
-  };
+  const showPassedTeams  = () => { setShowingPassedTeams(true);  setCurrentTeamIndex(0); };
+  const backToNewTeams   = () => { setShowingPassedTeams(false); setCurrentTeamIndex(0); };
+  const refreshNewTeams  = () => { setLikedTeamIds(new Set()); setPassedTeamIds(new Set()); fetchTeams(); };
 
-  const backToNewTeams = () => {
-    setShowingPassedTeams(false);
-    setCurrentTeamIndex(0);
-  };
-
-  const refreshNewTeams = () => {
-    setCurrentTeamIndex(0);
-    toast.info("Checking for new teams...");
-    // In production, this would fetch new teams from the API
-    // For now, it just resets the index to show any teams that might have appeared
-  };
-
-  // Toggle showing passed players
-  const showPassedPlayers = () => {
-    setShowingPassedPlayers(true);
-    setCurrentPlayerIndex(0);
-  };
-
-  const backToNewPlayers = () => {
-    setShowingPassedPlayers(false);
-    setCurrentPlayerIndex(0);
-  };
-
-  const refreshNewPlayers = () => {
-    setCurrentPlayerIndex(0);
-    toast.info("Checking for new players...");
-    // In production, this would fetch new players from the API
-    // For now, it just resets the index to show any players that might have appeared
-  };
+  const showPassedPlayers  = () => { setShowingPassedPlayers(true);  setCurrentPlayerIndex(0); };
+  const backToNewPlayers   = () => { setShowingPassedPlayers(false); setCurrentPlayerIndex(0); };
+  const refreshNewPlayers  = () => { setLikedPlayerIds(new Set()); setPassedPlayerIds(new Set()); fetchPlayers(); };
 
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav 
         currentRole={currentRole} 
         onRoleChange={setCurrentRole}
-        availableRoles={userRoles}
+        availableRoles={visibleRoles}
+        onOpenChat={() => { setChatInitialUserId(null); setChatOpen(true); }}
       />
       
       <main className="pt-20 pb-8 px-4">
@@ -353,10 +338,6 @@ const Dashboard = () => {
             )}
             {currentRole === "player" && (
               <>
-                <StatCard icon={Trophy} label="Profile Views" value="128" change="+12% this week" positive />
-                <StatCard icon={MessageSquare} label="Team Matches" value={teamMatches.length} />
-                <StatCard icon={Users} label="Matches Made" value="12" />
-                <StatCard icon={Calendar} label="Available Days" value="4" />
               </>
             )}
             {currentRole === "organizer" && (
@@ -404,13 +385,6 @@ const Dashboard = () => {
                     // Captain view - swipe players
                     currentPlayerIndex < availablePlayers.length && currentPlayer ? (
                       <div className="relative">
-                        {swipedRightPlayerIds.has(currentPlayer.id) && (
-                          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
-                            <Badge variant="default" className="bg-green-600 text-white">
-                              Already Liked ❤️
-                            </Badge>
-                          </div>
-                        )}
                         <SwipeCard
                           {...currentPlayer}
                           onSwipeLeft={handlePlayerSwipeLeft}
@@ -430,11 +404,15 @@ const Dashboard = () => {
                             variant="swipeLike" 
                             size="iconXl"
                             onClick={handlePlayerSwipeRight}
-                            disabled={currentPlayer && swipedRightPlayerIds.has(currentPlayer.id)}
                           >
                             <Heart className="w-8 h-8" />
                           </Button>
                         </div>
+                      </div>
+                    ) : loadingPlayers ? (
+                      <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+                        <Loader2 className="w-10 h-10 animate-spin" />
+                        <p>Loading players…</p>
                       </div>
                     ) : (
                       <div className="text-center py-12">
@@ -447,10 +425,7 @@ const Dashboard = () => {
                         <p className="text-muted-foreground mb-4">
                           {showingPassedPlayers 
                             ? "You've reviewed all passed players" 
-                            : (passedPlayerIds.size > 0 
-                                ? "You've reviewed all new players" 
-                                : "Check back later for new players")
-                          }
+                            : "You've reviewed everyone — refresh to reload"}
                         </p>
                         <div className="flex gap-2 justify-center">
                           {showingPassedPlayers ? (
@@ -483,13 +458,6 @@ const Dashboard = () => {
                     // Player view - swipe teams
                     currentTeamIndex < availableTeams.length && currentTeam ? (
                       <div className="relative">
-                        {swipedRightTeamIds.has(currentTeam.id) && (
-                          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
-                            <Badge variant="default" className="bg-green-600 text-white">
-                              Already Liked ❤️
-                            </Badge>
-                          </div>
-                        )}
                         <SwipeCard
                           {...currentTeam}
                           onSwipeLeft={handleTeamSwipeLeft}
@@ -509,11 +477,15 @@ const Dashboard = () => {
                             variant="swipeLike" 
                             size="iconXl"
                             onClick={handleTeamSwipeRight}
-                            disabled={currentTeam && swipedRightTeamIds.has(currentTeam.id)}
                           >
                             <Heart className="w-8 h-8" />
                           </Button>
                         </div>
+                      </div>
+                    ) : loadingTeams ? (
+                      <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+                        <Loader2 className="w-10 h-10 animate-spin" />
+                        <p>Loading teams…</p>
                       </div>
                     ) : (
                       <div className="text-center py-12">
@@ -526,10 +498,7 @@ const Dashboard = () => {
                         <p className="text-muted-foreground mb-4">
                           {showingPassedTeams 
                             ? "You've reviewed all passed teams" 
-                            : (passedTeamIds.size > 0 
-                                ? "You've reviewed all new teams" 
-                                : "Check back later for new teams")
-                          }
+                            : "You've reviewed everyone — refresh to reload"}
                         </p>
                         <div className="flex gap-2 justify-center">
                           {showingPassedTeams ? (
@@ -676,7 +645,9 @@ const Dashboard = () => {
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-sm truncate">{match.name}</p>
                               <p className="text-xs text-primary">
-                                {currentRole === "captain" ? match.role : match.lookingFor?.join(", ")}
+                                {currentRole === "captain"
+                                  ? (match as ReturnType<typeof playerToSwipeProps>).role
+                                  : (match as ReturnType<typeof teamToSwipeProps>).formats?.join(", ")}
                               </p>
                             </div>
                             <div className="flex items-center gap-1">
@@ -704,6 +675,15 @@ const Dashboard = () => {
                                 size="icon" 
                                 variant="ghost"
                                 className="h-8 w-8"
+                                onClick={() => {
+                                  const userId = currentRole === "captain"
+                                    ? match.id
+                                    : (match as ReturnType<typeof teamToSwipeProps>).captainId;
+                                  if (userId) {
+                                    setChatInitialUserId(userId);
+                                    setChatOpen(true);
+                                  }
+                                }}
                               >
                                 <MessageSquare className="h-4 w-4" />
                               </Button>
@@ -740,10 +720,9 @@ const Dashboard = () => {
                   )}
                   {currentRole === "player" && (
                     <>
-                      <Button variant="secondary" className="w-full justify-start">
-                        <Calendar className="w-4 h-4 mr-2" />
-                        Update Availability
-                      </Button>
+                      <AvailabilityScheduleDialog
+                        initialSchedule={user?.weekly_availability}
+                      />
                       <Dialog open={isTournamentDialogOpen} onOpenChange={setIsTournamentDialogOpen}>
                         <DialogTrigger asChild>
                           <Button variant="ghost" className="w-full justify-start">
@@ -878,6 +857,14 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Chat Panel */}
+      <ChatPanel
+        matches={chatMatches}
+        open={chatOpen}
+        onClose={() => { setChatOpen(false); setChatInitialUserId(null); }}
+        initialUserId={chatInitialUserId}
+      />
     </div>
   );
 };

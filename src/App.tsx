@@ -12,6 +12,7 @@ import Register from "./pages/Register";
 import AuthCallback from "./pages/AuthCallback";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,25 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Admin-only Route Component
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!user) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (!user.is_superuser) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -48,6 +68,7 @@ const App = () => (
             <Route path="/player" element={<Navigate to="/dashboard" replace />} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

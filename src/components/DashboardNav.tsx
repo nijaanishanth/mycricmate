@@ -18,7 +18,8 @@ import {
   LogOut,
   Settings,
   Bell,
-  MessageSquare
+  MessageSquare,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ interface DashboardNavProps {
   currentRole: "player" | "captain" | "organizer" | "staff";
   onRoleChange: (role: "player" | "captain" | "organizer" | "staff") => void;
   availableRoles?: ("player" | "captain" | "organizer" | "staff")[];
+  onOpenChat?: () => void;
 }
 
 const roleConfig = {
@@ -35,10 +37,10 @@ const roleConfig = {
   staff: { icon: Briefcase, label: "Staff", color: "text-muted-foreground" },
 };
 
-const DashboardNav = ({ currentRole, onRoleChange, availableRoles }: DashboardNavProps) => {
+const DashboardNav = ({ currentRole, onRoleChange, availableRoles, onOpenChat }: DashboardNavProps) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const CurrentRoleIcon = roleConfig[currentRole].icon;
   
   // Use all roles if availableRoles is not provided (backwards compatibility)
@@ -115,7 +117,7 @@ const DashboardNav = ({ currentRole, onRoleChange, availableRoles }: DashboardNa
                 3
               </span>
             </Button>
-            <Button variant="ghost" size="icon" className="relative">
+            <Button variant="ghost" size="icon" className="relative" onClick={onOpenChat}>
               <MessageSquare className="w-5 h-5" />
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center">
                 2
@@ -140,18 +142,23 @@ const DashboardNav = ({ currentRole, onRoleChange, availableRoles }: DashboardNa
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   className="gap-2 cursor-pointer"
-                  onClick={() => navigate('/profile')}
-                >
-                  <Settings className="w-4 h-4" />
-                  Edit Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  className="gap-2 cursor-pointer"
                   onClick={() => navigate('/settings')}
                 >
                   <Settings className="w-4 h-4" />
                   Settings
                 </DropdownMenuItem>
+                {user?.is_superuser && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="gap-2 cursor-pointer text-destructive"
+                      onClick={() => navigate('/admin')}
+                    >
+                      <ShieldAlert className="w-4 h-4" />
+                      Admin Panel
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="gap-2 cursor-pointer text-destructive"
